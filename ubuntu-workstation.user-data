@@ -1,0 +1,149 @@
+#cloud-config
+# Pure Cloud-Init WSL Ubuntu Setup
+# This file handles complete WSL Ubuntu configuration using only cloud-init
+
+# System configuration
+locale: en_US.UTF-8
+timezone: Europe/Copenhagen
+
+# Create user 'kingo' with proper setup
+users:
+  - name: kingo
+    groups: [adm, dialout, cdrom, floppy, sudo, audio, dip, video, plugdev, netdev]
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    shell: /bin/bash
+    lock_passwd: false
+    passwd: '$6$rounds=4096$aQ7lKJlAbo3Ed$lKzHJWcLPJgBM7u9vw7VlP6gxN7qHC8d.mVDi2lPmPkv8hZpSGDQyEE9MNqDpB/FiO6P5qgdL5jhZLgLJKuC21'  # Password: kingo
+    # Fallback SSH key (direct from Windows)
+    ssh_authorized_keys:
+      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINbCrSqXcKzlv9iZZSnyxZjbk+YCW5ViD121Gnk2iZha thomaso@spysystem.dk"
+
+# Package management
+package_update: true
+package_upgrade: true
+
+# Install essential packages - minimal set required for dotfiles setup
+packages:
+  - git
+  - curl
+  - ssh-import-id   # Required for SSH key import
+  - build-essential # Required for Homebrew
+  - procps          # Required for Homebrew  
+  - file            # Required for Homebrew
+  - yadm            # Dotfiles manager
+
+# System commands to run after package installation
+runcmd:
+  
+  # Set up git configuration for kingo
+  - sudo -u kingo git config --global init.defaultBranch main
+  - sudo -u kingo git config --global pull.rebase true
+  - sudo -u kingo git config --global core.editor "/bin/true"
+  
+  # Create essential directories
+  - sudo -u kingo mkdir -p /home/kingo/.config
+  - sudo -u kingo mkdir -p /home/kingo/.local/bin
+  - sudo -u kingo mkdir -p /home/kingo/projects
+  
+  # Configure YADM with dotfiles repository
+  - sudo -u kingo yadm init
+  - sudo -u kingo yadm remote add origin git@github.com:ThomasOlsson/dotfiles-workstation.git
+  
+  # Import SSH keys from GitHub (now that ssh-import-id is installed)
+  - sudo -u kingo ssh-import-id gh:ThomasOlsson
+  
+  # Move bashrc additions to user home and set up
+  - sudo -u kingo cp /tmp/bashrc_additions /home/kingo/.bashrc_additions
+  - sudo -u kingo bash -c 'echo "" >> /home/kingo/.bashrc'
+  - sudo -u kingo bash -c 'echo "# Cloud-init additions" >> /home/kingo/.bashrc'
+  - sudo -u kingo bash -c 'cat /home/kingo/.bashrc_additions >> /home/kingo/.bashrc'
+  
+  # Core workflow scripts will be installed by your dotfiles bootstrap
+  
+  # Ensure proper ownership
+  - chown -R kingo:kingo /home/kingo
+
+# SSH security configuration
+ssh_genkeytypes: [rsa, ecdsa, ed25519]
+ssh_deletekeys: true
+disable_root: true
+ssh_quiet_keygen: true
+ssh_pwauth: false  # Disable password authentication completely
+
+# SSH key fingerprint logging (for security)
+no_ssh_fingerprints: false
+authkey_hash: sha256
+
+# Control SSH key console output for security
+ssh:
+  emit_keys_to_console: false
+
+
+# Write configuration files
+write_files:
+  # WSL configuration - set default user and clean PATH
+  - path: /etc/wsl.conf
+    content: |
+      [user]
+      default=kingo
+      
+      [network]
+      generateHosts = true
+      generateResolvConf = true
+      
+      [interop]
+      appendWindowsPath = false
+    permissions: '0644'
+    
+  # Minimal bashrc additions for WSL setup
+  - path: /tmp/bashrc_additions
+    content: |
+      # Add local bin to PATH
+      if [ -d "$HOME/.local/bin" ]; then
+          export PATH="$HOME/.local/bin:$PATH"
+      fi
+      
+      # Homebrew PATH will be configured by your bootstrap script
+      
+      # Welcome message
+      echo "🚀 WSL Ubuntu Workstation ready!"
+      echo "Basic setup complete - your dotfiles will handle the rest!"
+      echo "User 'kingo' password: kingo (for Homebrew installation)"
+      echo ""
+      echo "Steps to complete setup:"
+      echo "1. Copy your private SSH key to ~/.ssh/id_ed25519"
+      echo "2. Clone your dotfiles repository manually"
+      echo "3. Run your bootstrap script to install everything"
+      echo ""
+      echo "💡 Homebrew installation tips for your bootstrap:"
+      echo "- Use NONINTERACTIVE=1 for unattended installation"
+      echo "- Prerequisites already installed: build-essential, procps, file"
+    permissions: '0644'
+    
+
+# Boot commands - run these during system boot
+bootcmd:
+  # Ensure systemd services are ready
+  - systemctl daemon-reload
+
+# Final message
+final_message: |
+  🎉 WSL Ubuntu Workstation Setup Complete!
+  
+  ✅ User: kingo (with sudo privileges)
+  ✅ Timezone: Europe/Copenhagen  
+  ✅ SSH keys configured (GitHub + direct fallback)
+  ✅ Git configured with proper defaults
+  ✅ Basic system ready for your dotfiles
+  
+  🚀 Ready for manual dotfiles setup:
+  1. Copy your private SSH key: ~/.ssh/id_ed25519
+  2. Clone your dotfiles repository manually  
+  3. Run your bootstrap script to install everything
+  
+  💡 For your bootstrap script:
+  - User password is 'kingo' (needed for Homebrew installation)
+  - Homebrew prerequisites already installed
+  - Use NONINTERACTIVE=1 for unattended Homebrew install
+  
+  Happy coding! 🔥
