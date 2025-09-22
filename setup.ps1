@@ -148,7 +148,7 @@ function Main {
     Write-Host ""
     Write-Host "🔥 Ready for dotfiles! Just 2 steps:" @Cyan
     Write-Host "  1. Copy private SSH key: ~/.ssh/id_ed25519" @Yellow
-    Write-Host "  2. Pull dotfiles: yadm pull && yadm bootstrap" @Yellow
+    Write-Host "  2. Pull dotfiles: yadm pull `&`& yadm bootstrap" @Yellow
     Write-Host ""
     Write-Host "📋 Useful commands:" @Cyan
     Write-Host "  wsl -d $InstanceName -- sudo cloud-init status     # Check cloud-init status" @Yellow
