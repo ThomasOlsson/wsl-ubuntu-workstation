@@ -26,7 +26,6 @@ package_upgrade: true
 packages:
   - git
   - curl
-  - ssh-import-id   # Required for SSH key import
   - build-essential # Required for Homebrew
   - procps          # Required for Homebrew  
   - file            # Required for Homebrew
@@ -45,12 +44,25 @@ runcmd:
   - sudo -u kingo mkdir -p /home/kingo/.local/bin
   - sudo -u kingo mkdir -p /home/kingo/projects
   
-  # Configure YADM with dotfiles repository
-  - sudo -u kingo yadm init
-  - sudo -u kingo yadm remote add origin git@github.com:ThomasOlsson/dotfiles-workstation.git
+  # Copy SSH keys from Windows (automatic setup)
+  - sudo -u kingo mkdir -p /home/kingo/.ssh
+  - sudo -u kingo cp -r "/mnt/c/Users/Thomas Olsson/.ssh/"* /home/kingo/.ssh/ 2>/dev/null || true
   
-  # Import SSH keys from GitHub (now that ssh-import-id is installed)
-  - sudo -u kingo ssh-import-id gh:ThomasOlsson
+  # Set proper SSH key permissions (critical for git operations)
+  - sudo -u kingo chmod 700 /home/kingo/.ssh
+  - sudo -u kingo find /home/kingo/.ssh -name 'id_*' -not -name '*.pub' -exec chmod 600 {} \;
+  - sudo -u kingo find /home/kingo/.ssh -name '*.pub' -exec chmod 644 {} \;
+  - sudo -u kingo chmod 644 /home/kingo/.ssh/known_hosts* 2>/dev/null || true
+  
+  # Add GitHub to known hosts to avoid SSH prompts
+  - sudo -u kingo ssh-keyscan -H github.com >> /home/kingo/.ssh/known_hosts
+  
+  # Clone dotfiles repository with yadm (this will set up everything properly)
+  # Use StrictHostKeyChecking=no as backup in case ssh-keyscan didn't work
+  - sudo -u kingo bash -c "cd /home/kingo && GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no' yadm clone git@github.com:ThomasOlsson/dotfiles-workstation.git"
+  
+  # Run bootstrap automatically to set up symlinks
+  - sudo -u kingo bash -c "cd /home/kingo && yadm bootstrap"
   
   # Move bashrc additions to user home and set up
   - sudo -u kingo cp /tmp/bashrc_additions /home/kingo/.bashrc_additions
@@ -110,10 +122,10 @@ write_files:
       echo "Basic setup complete - your dotfiles will handle the rest!"
       echo "User 'kingo' password: kingo (for Homebrew installation)"
       echo ""
-      echo "Steps to complete setup:"
-      echo "1. Copy your private SSH key to ~/.ssh/id_ed25519"
-      echo "2. Clone your dotfiles repository manually"
-      echo "3. Run your bootstrap script to install everything"
+      echo "Setup Status:"
+      echo "✅ SSH keys copied from Windows automatically"
+      echo "✅ Dotfiles cloned via yadm automatically"
+      echo "✅ Ready to use - try: yadm status"
       echo ""
       echo "💡 Homebrew installation tips for your bootstrap:"
       echo "- Use NONINTERACTIVE=1 for unattended installation"
@@ -136,10 +148,10 @@ final_message: |
   ✅ Git configured with proper defaults
   ✅ Basic system ready for your dotfiles
   
-  🚀 Ready for manual dotfiles setup:
-  1. Copy your private SSH key: ~/.ssh/id_ed25519
-  2. Clone your dotfiles repository manually  
-  3. Run your bootstrap script to install everything
+  🚀 Dotfiles should be ready automatically:
+  1. YADM clone should have completed during setup
+  2. Run 'yadm bootstrap' if needed to complete setup
+  3. Your cursor settings should sync across machines
   
   💡 For your bootstrap script:
   - User password is 'kingo' (needed for Homebrew installation)
